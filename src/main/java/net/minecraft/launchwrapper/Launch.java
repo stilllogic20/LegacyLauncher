@@ -31,10 +31,28 @@ public class Launch {
     public static LaunchClassLoader classLoader;
 
     private Launch() {
-        final URLClassLoader ucl = (URLClassLoader) getClass().getClassLoader();
-        classLoader = new LaunchClassLoader(ucl.getURLs());
+        ClassLoader cl = this.getClass().getClassLoader();
+        java.net.URL[] urls;
+
+        if (cl instanceof URLClassLoader) {
+            urls = ((URLClassLoader) cl).getURLs();
+        } else {
+            try {
+                java.lang.reflect.Field ucpField = cl.getClass().getDeclaredField("ucp");
+                ucpField.setAccessible(true);
+                Object ucp = ucpField.get(cl);
+                
+                java.lang.reflect.Method getURLsMethod = ucp.getClass().getMethod("getURLs");
+                getURLsMethod.setAccessible(true);
+                urls = (java.net.URL[]) getURLsMethod.invoke(ucp);
+            } catch (Exception exception) {
+                throw new InternalError(exception);
+            }
+        }
+
+        classLoader = new LaunchClassLoader(urls);
         blackboard = new HashMap<String,Object>();
-        Thread.currentThread().setContextClassLoader(classLoader);
+        Thread.currentThread().setContextClassLoader(Launch.classLoader);
     }
 
     private void launch(String[] args) {
